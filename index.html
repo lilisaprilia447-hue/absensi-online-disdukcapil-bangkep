@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEM ABSENSI PEGAWAI DISDUKCAPIL BANGKEP</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-gov-gradient { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #0f172a 100%); }
+        .gold-accent { color: #f59e0b; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .animate-scaleIn { animation: scaleIn 0.2s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-gov-gradient text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3 text-center sm:text-left">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/10 flex items-center justify-center border-2 border-amber-400/60 shadow-inner flex-shrink-0">
+                    <i class="fa-solid fa-landmark text-amber-400 text-xl sm:text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xs sm:text-sm font-semibold tracking-wider text-amber-300 uppercase">PEMERINTAH KABUPATEN BANGGAI KEPULAUAN</h1>
+                    <h2 class="text-base sm:text-xl font-bold tracking-tight">DINAS KEPENDUDUKAN DAN PENCATATAN SIPIL</h2>
+                </div>
+            </div>
+
+            <!-- Realtime Clock & Navigation -->
+            <div class="flex items-center gap-3 flex-wrap justify-center">
+                <div class="bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-xs sm:text-sm flex items-center gap-2">
+                    <i class="fa-regular fa-clock text-amber-400"></i>
+                    <span id="live-clock" class="font-mono font-medium">Memuat Waktu...</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="switchView('attendance')" id="nav-attendance" class="px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-blue-600 text-white shadow hover:bg-blue-500 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-clipboard-user"></i> Absensi
+                    </button>
+                    <button onclick="checkAdminAccess()" id="nav-admin" class="px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-lock"></i> Admin
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 sm:py-8">
+
+        <!-- VIEW 1: ATTENDANCE FORM -->
+        <section id="view-attendance" class="space-y-6">
+            <!-- Hero Announcement / Schedule Status Banner -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div>
+                    <span class="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full mb-2 border border-blue-200">
+                        <i class="fa-solid fa-shield-halved mr-1"></i> Sistem Absensi Resmi Terpusat Dukcapil Bangkep
+                    </span>
+                    <h3 class="text-xl sm:text-2xl font-bold text-slate-900">Selamat Datang di Portal Absensi Pegawai</h3>
+                    <p class="text-sm text-slate-600 mt-1">Silakan isi formulir dengan valid dan lakukan swafoto (foto langsung) sesuai jadwal sesi apel yang ditentukan.</p>
+                </div>
+                <!-- Sesi Status Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto">
+                    <!-- Apel Pagi -->
+                    <div id="badge-apel-pagi" class="p-3.5 rounded-xl border transition-all">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold uppercase tracking-wide">Apel Pagi</span>
+                            <span id="status-pagi-dot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                        </div>
+                        <div class="text-xs font-medium text-slate-600">07:30 - 08:30 WITA</div>
+                        <div id="status-pagi-text" class="text-xs font-bold mt-1 text-slate-500">Memeriksa jadwal...</div>
+                    </div>
+                    <!-- Apel Sore -->
+                    <div id="badge-apel-sore" class="p-3.5 rounded-xl border transition-all">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold uppercase tracking-wide">Apel Sore</span>
+                            <span id="status-sore-dot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                        </div>
+                        <div class="text-xs font-medium text-slate-600">15:30 - 16:30 WITA</div>
+                        <div id="status-sore-text" class="text-xs font-bold mt-1 text-slate-500">Memeriksa jadwal...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Pengujian Waktu -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-flask-vial text-amber-600 text-base"></i>
+                    <span><strong>Mode Pengujian Waktu (Lokal):</strong> Untuk menguji input absensi di luar jam operasional. Waktu transaksi asli tetap dicatat oleh sistem.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="font-semibold cursor-pointer">Simulasi Sesi:</label>
+                    <select id="time-simulation" onchange="updateTimeSimulation()" class="bg-white border border-amber-300 rounded px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-amber-500">
+                        <option value="real">Gunakan Waktu Nyata (WITA)</option>
+                        <option value="pagi">Simulasi Jam Apel Pagi (08:00 WITA)</option>
+                        <option value="sore">Simulasi Jam Apel Sore (16:00 WITA)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Form & Camera Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Form Fields (7 cols) -->
+                <div class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                    <h4 class="text-lg font-bold text-slate-900 mb-5 pb-3 border-b border-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-id-card text-blue-600"></i> Formulir Identitas & Sesi Kehadiran
+                    </h4>
+
+                    <form id="attendance-form" onsubmit="submitAttendance(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nama Lengkap & Gelar <span class="text-red-500">*</span></label>
+                            <input type="text" id="emp-name" required placeholder="Contoh: Drs. H. Ahmad Fauzi, M.Si" class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nomor Induk Pegawai (NIP) <span class="text-red-500">*</span></label>
+                            <input type="text" id="emp-nip" required maxlength="25" placeholder="Contoh: 198001012005011001" class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition font-mono">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Status Kepegawaian <span class="text-red-500">*</span></label>
+                            <select id="emp-status" required class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition">
+                                <option value="">-- Pilih Status Kepegawaian --</option>
+                                <option value="PNS">PNS (Pegawai Negeri Sipil)</option>
+                                <option value="PPPK">PPPK (Pegawai Pemerintah dengan Perjanjian Kerja)</option>
+                                <option value="PPPK PW">PPPK PW (Paruh Waktu)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Pilih Sesi Apel <span class="text-red-500">*</span></label>
+                            <select id="emp-session" required class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition">
+                                <option value="">-- Pilih Sesi Apel --</option>
+                                <option value="Apel Pagi">Apel Pagi (07:30 - 08:30 WITA)</option>
+                                <option value="Apel Sore">Apel Sore (15:30 - 16:30 WITA)</option>
+                            </select>
+                        </div>
+
+                        <!-- Hidden Photo Data -->
+                        <input type="hidden" id="photo-data">
+
+                        <!-- Submit Button -->
+                        <div class="pt-4">
+                            <button type="submit" id="btn-submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-paper-plane"></i> Kirim Absensi Sekarang
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Camera & Photo Verification (5 cols) -->
+                <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-lg font-bold text-slate-900 mb-2 pb-3 border-b border-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-camera text-blue-600"></i> Swafoto Bukti Kehadiran
+                        </h4>
+                        <p class="text-xs text-slate-500 mb-4">Pastikan wajah terlihat jelas di dalam bingkai kamera sebagai bukti kehadiran fisik.</p>
+
+                        <!-- Camera Viewport / Preview Box -->
+                        <div id="camera-container" class="relative w-full bg-slate-900 rounded-xl overflow-hidden aspect-[4/3] flex items-center justify-center border-2 border-slate-200 shadow-inner">
+                            <!-- Video Stream -->
+                            <video id="camera-feed" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+                            
+                            <!-- Captured Photo Preview -->
+                            <img id="photo-preview" class="w-full h-full object-cover hidden" alt="Pratinjau Foto">
+
+                            <!-- Initial Camera State Placeholder -->
+                            <div id="camera-placeholder" class="text-center p-6 text-slate-400">
+                                <i class="fa-solid fa-video-slash text-4xl mb-2"></i>
+                                <p class="text-xs">Kamera belum diaktifkan. Klik tombol di bawah untuk mulai.</p>
+                            </div>
+
+                            <!-- Canvas for Snapshot -->
+                            <canvas id="camera-canvas" class="hidden"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Camera Control Buttons -->
+                    <div class="mt-6 space-y-2">
+                        <button type="button" id="btn-start-camera" onclick="startCamera()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-camera-retro"></i> Aktifkan Kamera
+                        </button>
+                        <div id="camera-active-controls" class="hidden grid grid-cols-2 gap-2">
+                            <button type="button" onclick="takeSnapshot()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-circle-dot"></i> Ambil Foto
+                            </button>
+                            <button type="button" onclick="retakePhoto()" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-rotate-right"></i> Ambil Ulang
+                            </button>
+                        </div>
+                        <p id="camera-status-msg" class="text-xs text-center text-slate-500 font-medium mt-2"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 2: ADMIN LOGIN -->
+        <section id="view-admin-login" class="hidden max-w-md mx-auto my-12">
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-blue-50 text-blue-700 rounded-full flex items-center justify-center mx-auto mb-3 border border-blue-200 text-2xl shadow-inner">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900">Login Administrator</h3>
+                    <p class="text-xs text-slate-500 mt-1">Masukkan NIP Administrator dan Password untuk mengakses dashboard.</p>
+                </div>
+
+                <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIP Admin</label>
+                        <input type="text" id="admin-nip" required placeholder="Masukkan NIP Admin" class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Password</label>
+                        <input type="password" id="admin-pass" required placeholder="Masukkan Password" class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                    </div>
+                    <div id="login-error" class="text-xs text-rose-600 font-medium hidden text-center bg-rose-50 p-2.5 rounded-lg border border-rose-200"></div>
+                    <div class="pt-2 flex gap-3">
+                        <button type="button" onclick="switchView('attendance')" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2.5 rounded-xl text-xs transition">Batal</button>
+                        <button type="submit" id="btn-login" class="w-2/3 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-right-to-bracket"></i> Masuk Dashboard
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- VIEW 3: ADMIN DASHBOARD & HISTORY -->
+        <section id="view-admin-dashboard" class="hidden space-y-6">
+            <!-- Dashboard Header & Actions -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <span class="inline-block px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full mb-1 border border-emerald-200">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Sesi Admin Aktif
+                    </span>
+                    <h3 class="text-2xl font-bold text-slate-900">Dashboard Riwayat Absensi Pegawai</h3>
+                    <p id="sync-status-text" class="text-xs text-slate-500">Memeriksa koneksi database cloud Supabase...</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="openSupabaseConfigModal()" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow">
+                        <i class="fa-solid fa-database text-emerald-400"></i> Koneksi Supabase
+                    </button>
+                    <button onclick="loadRecordsFromCloud()" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow" title="Segarkan Data">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                    <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow">
+                        <i class="fa-solid fa-file-excel"></i> Ekspor ke Excel (CSV)
+                    </button>
+                    <button onclick="adminLogout()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow">
+                        <i class="fa-solid fa-right-from-bracket"></i> Keluar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Statistics Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 uppercase">Total Kehadiran</div>
+                    <div id="stat-total" class="text-2xl font-bold text-slate-900 mt-1">0</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-blue-600 uppercase">Apel Pagi</div>
+                    <div id="stat-pagi" class="text-2xl font-bold text-blue-700 mt-1">0</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-amber-600 uppercase">Apel Sore</div>
+                    <div id="stat-sore" class="text-2xl font-bold text-amber-700 mt-1">0</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-emerald-600 uppercase">Hari Ini</div>
+                    <div id="stat-today" class="text-2xl font-bold text-emerald-700 mt-1">0</div>
+                </div>
+            </div>
+
+            <!-- Search & Filters Bar -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div class="lg:col-span-2">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Cari Nama / NIP</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i class="fa-solid fa-search"></i>
+                        </span>
+                        <input type="text" id="filter-search" oninput="renderAttendanceTable()" placeholder="Ketik nama atau NIP..." class="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Sesi Apel</label>
+                    <select id="filter-session" onchange="renderAttendanceTable()" class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600">
+                        <option value="">Semua Sesi</option>
+                        <option value="Apel Pagi">Apel Pagi</option>
+                        <option value="Apel Sore">Apel Sore</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Status Kepegawaian</label>
+                    <select id="filter-status" onchange="renderAttendanceTable()" class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600">
+                        <option value="">Semua Status</option>
+                        <option value="PNS">PNS</option>
+                        <option value="PPPK">PPPK</option>
+                        <option value="PPPK PW">PPPK PW</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal</label>
+                    <input type="date" id="filter-date" onchange="renderAttendanceTable()" class="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                </div>
+            </div>
+
+            <!-- Attendance Data Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold tracking-wider text-[11px] border-b border-slate-200">
+                                <th class="p-3 sm:p-4 text-center">No</th>
+                                <th class="p-3 sm:p-4">Pegawai & NIP</th>
+                                <th class="p-3 sm:p-4">Status</th>
+                                <th class="p-3 sm:p-4">Sesi Apel</th>
+                                <th class="p-3 sm:p-4">Waktu (WITA)</th>
+                                <th class="p-3 sm:p-4 text-center">Foto</th>
+                                <th class="p-3 sm:p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-table-body" class="divide-y divide-slate-100">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="table-empty-state" class="hidden p-12 text-center text-slate-400">
+                    <i class="fa-solid fa-folder-open text-4xl mb-2"></i>
+                    <p class="text-sm font-medium">Tidak ada data absensi yang ditemukan.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal for Photo Viewer -->
+    <div id="photo-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-4 relative shadow-2xl animate-scaleIn">
+            <button onclick="closePhotoModal()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h4 id="modal-employee-title" class="font-bold text-slate-900 text-sm mb-3">Bukti Foto Kehadiran</h4>
+            <div class="rounded-xl overflow-hidden bg-slate-900 aspect-[4/3] flex items-center justify-center">
+                <img id="modal-img-preview" src="" alt="Bukti Foto" class="w-full h-full object-cover">
+            </div>
+            <div id="modal-employee-meta" class="mt-3 text-xs text-slate-600 space-y-1"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Delete Confirmation -->
+    <div id="delete-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl animate-scaleIn">
+            <div class="w-14 h-14 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h4 class="text-lg font-bold text-slate-900 mb-2">Hapus Riwayat Absensi?</h4>
+            <p id="delete-modal-msg" class="text-xs sm:text-sm text-slate-600 mb-6">Apakah Anda yakin ingin menghapus data absensi pegawai ini? Tindakan ini tidak dapat dibatalkan.</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2.5 rounded-xl text-xs sm:text-sm transition">Batal</button>
+                <button id="btn-confirm-delete" onclick="confirmDeleteAttendance()" class="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 rounded-xl text-xs sm:text-sm transition shadow flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-trash-can"></i> Hapus
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Modal (Custom Alert) -->
+    <div id="alert-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl animate-scaleIn">
+            <div id="alert-icon" class="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"></div>
+            <h4 id="alert-title" class="text-lg font-bold text-slate-900 mb-2"></h4>
+            <p id="alert-message" class="text-xs sm:text-sm text-slate-600 mb-6"></p>
+            <button onclick="closeAlertModal()" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow">OK, Mengerti</button>
+        </div>
+    </div>
+
+    <!-- Modal Pengaturan URL Supabase & Panduan Tabel -->
+    <div id="supabase-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 relative shadow-2xl animate-scaleIn my-8">
+            <button onclick="closeSupabaseConfigModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-900 text-base">Pengaturan Koneksi Cloud Supabase</h4>
+                    <p class="text-xs text-slate-500">Hubungkan agar data antar HP/Laptop tersinkronisasi otomatis.</p>
+                </div>
+            </div>
+
+            <!-- Panduan Langkah Demi Langkah -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-[11px] text-blue-950 space-y-1">
+                <div class="font-bold text-blue-800"><i class="fa-solid fa-list-check mr-1"></i> Langkah Mudah Menghubungkan:</div>
+                <div>1. Tutup pop-up <em>"Snippets no longer save automatically"</em> di Supabase dengan klik <strong>Understood</strong>.</div>
+                <div>2. Klik <strong>Salin SQL</strong> di bawah, lalu tempel dan klik <strong>Run</strong> di SQL Editor Supabase.</div>
+                <div>3. Salin <strong>Project URL</strong> dari menu <em>Project Settings &rarr; Data API</em> di Supabase, tempel di kolom bawah, lalu klik <strong>Simpan &amp; Hubungkan</strong>.</div>
+            </div>
+
+            <form onsubmit="saveSupabaseConfig(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Project URL Supabase <span class="text-red-500">*</span></label>
+                    <input type="url" id="sb-url-input" required placeholder="https://xxxxxxxxxxxx.supabase.co" class="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono">
+                    <p class="text-[11px] text-slate-500 mt-1">Salin dari Dashboard Supabase &rarr; <strong>Project Settings &rarr; Data API &rarr; Project URL</strong>.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Publishable / Anon Key</label>
+                    <input type="text" id="sb-key-input" readonly class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-mono">
+                </div>
+
+                <div class="bg-slate-900 text-slate-200 p-3 rounded-xl text-[11px] space-y-1.5">
+                    <div class="flex justify-between items-center text-emerald-400 font-semibold">
+                        <span><i class="fa-solid fa-terminal mr-1"></i> SQL Tabel (Jalankan sekali di SQL Editor Supabase):</span>
+                        <button type="button" onclick="copySqlSetup()" class="bg-slate-700 hover:bg-slate-600 text-white px-2 py-0.5 rounded text-[10px]">Salin SQL</button>
+                    </div>
+                    <pre id="sql-setup-code" class="overflow-x-auto text-[10px] text-slate-300 font-mono leading-relaxed select-all">create table if not exists public.absensi_pegawai (
+  id text primary key,
+  name text not null,
+  nip text not null,
+  status text not null,
+  session text not null,
+  date_iso text not null,
+  date_display text not null,
+  photo text not null,
+  timestamp_ms bigint not null
+);
+alter table public.absensi_pegawai enable row level security;
+create policy "Akses Publik Absensi" on public.absensi_pegawai for all using (true) with check (true);</pre>
+                </div>
+
+                <div class="pt-2 flex gap-2">
+                    <button type="button" onclick="closeSupabaseConfigModal()" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2.5 rounded-xl text-xs transition">Tutup</button>
+                    <button type="submit" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-plug-circle-check"></i> Simpan & Hubungkan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-6 mt-12 border-t border-slate-800 text-center text-xs">
+        <div class="max-w-7xl mx-auto px-4 space-y-2">
+            <p class="font-semibold text-slate-300">Sistem Absensi Pegawai — Dinas Kependudukan dan Pencatatan Sipil Kabupaten Banggai Kepulauan</p>
+            <p>&copy; 2026 DISDUKCAPIL BANGKEP. Hak Cipta Dilindungi Undang-Undang.</p>
+        </div>
+    </footer>
+
+    <!-- Application Logic (Supabase Cloud + LocalStorage Fallback) -->
+    <script>
+        const STORAGE_KEY = 'disdukcapil_bangkep_attendance_v1';
+        const ADMIN_AUTH_KEY = 'disdukcapil_bangkep_admin_logged_in';
+        const SB_URL_STORAGE_KEY = 'disdukcapil_bangkep_supabase_url';
+        const ADMIN_NIP = '200209072025062006';
+        const ADMIN_PASS = 'Dukcapil7207';
+
+        // Kredensial Supabase Anda
+        const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_spWN8zX-ynCZ7Nozb95YBA_fVQpOnis';
+        // Project URL Supabase Anda agar terhubung otomatis di semua perangkat
+        const DEFAULT_SUPABASE_URL = 'https://tcclfcximrgpyvzsooqg.supabase.co';
+
+        let supabaseClient = null;
+        let allAttendanceRecords = [];
+        let videoStream = null;
+        let simulatedTimeMode = 'real';
+        let pendingDeleteId = null;
+
+        // Inisialisasi Aplikasi
+        window.addEventListener('DOMContentLoaded', async () => {
+            initSupabase();
+            await loadRecordsFromCloud();
+            setInterval(updateClockAndSchedules, 1000);
+            updateClockAndSchedules();
+        });
+
+        // --- INISIALISASI & KONEKSI SUPABASE ---
+        function getSavedSupabaseUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramUrl = urlParams.get('sb_url');
+            if (paramUrl) {
+                localStorage.setItem(SB_URL_STORAGE_KEY, paramUrl.trim());
+                return paramUrl.trim();
+            }
+            return localStorage.getItem(SB_URL_STORAGE_KEY) || DEFAULT_SUPABASE_URL;
+        }
+
+        function initSupabase() {
+            const sbUrl = getSavedSupabaseUrl();
+            const statusEl = document.getElementById('sync-status-text');
+
+            if (sbUrl && window.supabase) {
+                try {
+                    supabaseClient = window.supabase.createClient(sbUrl, SUPABASE_PUBLISHABLE_KEY);
+                    if (statusEl) {
+                        statusEl.innerHTML = `<span class="text-emerald-600 font-semibold"><i class="fa-solid fa-cloud mr-1"></i> Terhubung ke Supabase Cloud</span> (${escapeHtml(sbUrl)})`;
+                    }
+                } catch (err) {
+                    console.error("Gagal inisialisasi Supabase:", err);
+                    supabaseClient = null;
+                }
+            } else {
+                supabaseClient = null;
+                if (statusEl) {
+                    statusEl.innerHTML = `<span class="text-amber-600 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> URL Supabase belum diatur.</span> Klik tombol <strong>Koneksi Supabase</strong> di kanan untuk mengaktifkan sinkronisasi antar perangkat.`;
+                }
+            }
+        }
+
+        function openSupabaseConfigModal() {
+            document.getElementById('sb-url-input').value = getSavedSupabaseUrl();
+            document.getElementById('sb-key-input').value = SUPABASE_PUBLISHABLE_KEY;
+            document.getElementById('supabase-modal').classList.remove('hidden');
+        }
+
+        function closeSupabaseConfigModal() {
+            document.getElementById('supabase-modal').classList.add('hidden');
+        }
+
+        async function saveSupabaseConfig(e) {
+            e.preventDefault();
+            const urlVal = document.getElementById('sb-url-input').value.trim().replace(/\/$/, '');
+            localStorage.setItem(SB_URL_STORAGE_KEY, urlVal);
+            initSupabase();
+            closeSupabaseConfigModal();
+            await loadRecordsFromCloud();
+            showAlert("Koneksi Disimpan", "Project URL Supabase berhasil disimpan. Data riwayat sekarang disinkronkan dari Cloud.", "success");
+        }
+
+        function copySqlSetup() {
+            const sqlText = document.getElementById('sql-setup-code').textContent;
+            const textarea = document.createElement('textarea');
+            textarea.value = sqlText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showAlert("SQL Disalin", "Kode SQL berhasil disalin. Tempel dan jalankan (Run) di menu SQL Editor pada Dashboard Supabase Anda.", "success");
+        }
+
+        // --- MANAJEMEN DATA CLOUD & LOKAL ---
+        async function loadRecordsFromCloud() {
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('absensi_pegawai')
+                        .select('*')
+                        .order('timestamp_ms', { ascending: false });
+
+                    if (error) throw error;
+
+                    allAttendanceRecords = (data || []).map(row => ({
+                        id: row.id,
+                        name: row.name,
+                        nip: row.nip,
+                        status: row.status,
+                        session: row.session,
+                        dateIso: row.date_iso,
+                        dateDisplay: row.date_display,
+                        photo: row.photo,
+                        timestampMs: row.timestamp_ms
+                    }));
+
+                    saveRecordsToLocalCache();
+                    updateDashboardStats();
+                    renderAttendanceTable();
+                    return;
+                } catch (err) {
+                    console.error("Gagal mengambil data dari Supabase:", err);
+                }
+            }
+
+            // Fallback ke penyimpanan lokal jika URL Supabase belum diisi
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                allAttendanceRecords = raw ? JSON.parse(raw) : [];
+                allAttendanceRecords.sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
+            } catch (err) {
+                allAttendanceRecords = [];
+            }
+            updateDashboardStats();
+            renderAttendanceTable();
+        }
+
+        function saveRecordsToLocalCache() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(allAttendanceRecords));
+            } catch (err) {
+                console.warn("Cache lokal penuh:", err);
+            }
+        }
+
+        // --- WAKTU REALTIME (WITA / UTC+8) & SIMULASI ---
+        function getCurrentWitaDate() {
+            const now = new Date();
+            // Konversi waktu lokal browser ke zona waktu WITA (Asia/Makassar)
+            const witaString = now.toLocaleString("en-US", { timeZone: "Asia/Makassar" });
+            const witaDate = new Date(witaString);
+
+            if (simulatedTimeMode === 'pagi') {
+                witaDate.setHours(8, 0, 0, 0);
+            } else if (simulatedTimeMode === 'sore') {
+                witaDate.setHours(16, 0, 0, 0);
+            }
+            return witaDate;
+        }
+
+        function getRealWitaDate() {
+            const now = new Date();
+            const witaString = now.toLocaleString("en-US", { timeZone: "Asia/Makassar" });
+            return new Date(witaString);
+        }
+
+        function updateTimeSimulation() {
+            simulatedTimeMode = document.getElementById('time-simulation').value;
+            updateClockAndSchedules();
+        }
+
+        function updateClockAndSchedules() {
+            const wita = getCurrentWitaDate();
+            const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+            const dayName = days[wita.getDay()];
+            const dateStr = `${wita.getDate()} ${months[wita.getMonth()]} ${wita.getFullYear()}`;
+            const timeStr = wita.toTimeString().split(' ')[0];
+
+            const clockEl = document.getElementById('live-clock');
+            if (clockEl) {
+                clockEl.textContent = `${dayName}, ${dateStr} • ${timeStr} WITA`;
+            }
+
+            // Cek status sesi berdasarkan jam & menit WITA
+            const totalMinutes = wita.getHours() * 60 + wita.getMinutes();
+
+            // Apel Pagi: 07:30 (450) - 08:30 (510)
+            const isPagiOpen = totalMinutes >= 450 && totalMinutes <= 510;
+            // Apel Sore: 15:30 (930) - 16:30 (990)
+            const isSoreOpen = totalMinutes >= 930 && totalMinutes <= 990;
+
+            updateBadgeUI('pagi', isPagiOpen);
+            updateBadgeUI('sore', isSoreOpen);
+
+            // Auto-select sesi jika kosong dan salah satu sedang aktif
+            const sessionSelect = document.getElementById('emp-session');
+            if (sessionSelect && sessionSelect.value === '') {
+                if (isPagiOpen) sessionSelect.value = 'Apel Pagi';
+                else if (isSoreOpen) sessionSelect.value = 'Apel Sore';
+            }
+        }
+
+        function updateBadgeUI(type, isOpen) {
+            const badge = document.getElementById(`badge-apel-${type}`);
+            const dot = document.getElementById(`status-${type}-dot`);
+            const text = document.getElementById(`status-${type}-text`);
+
+            if (!badge || !dot || !text) return;
+
+            if (isOpen) {
+                badge.className = "p-3.5 rounded-xl border border-emerald-300 bg-emerald-50/70 transition-all";
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                text.className = "text-xs font-bold mt-1 text-emerald-700";
+                text.textContent = "SEDANG DIBUKA";
+            } else {
+                badge.className = "p-3.5 rounded-xl border border-slate-200 bg-slate-50 transition-all";
+                dot.className = "w-2.5 h-2.5 rounded-full bg-rose-400";
+                text.className = "text-xs font-bold mt-1 text-slate-500";
+                text.textContent = "DITUTUP / DI LUAR JADWAL";
+            }
+        }
+
+        // --- NAVIGASI VIEW ---
+        function switchView(viewName) {
+            const views = ['attendance', 'admin-login', 'admin-dashboard'];
+            views.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if (el) el.classList.add('hidden');
+            });
+
+            const target = document.getElementById(`view-${viewName}`);
+            if (target) target.classList.remove('hidden');
+
+            const navAtt = document.getElementById('nav-attendance');
+            const navAdm = document.getElementById('nav-admin');
+
+            if (viewName === 'attendance') {
+                navAtt.className = "px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-blue-600 text-white shadow hover:bg-blue-500 transition flex items-center gap-1.5";
+                navAdm.className = "px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white transition flex items-center gap-1.5";
+            } else {
+                navAtt.className = "px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white transition flex items-center gap-1.5";
+                navAdm.className = "px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-blue-600 text-white shadow hover:bg-blue-500 transition flex items-center gap-1.5";
+            }
+        }
+
+        function checkAdminAccess() {
+            const isLoggedIn = sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true';
+            if (isLoggedIn) {
+                loadRecordsFromCloud();
+                switchView('admin-dashboard');
+            } else {
+                document.getElementById('login-error').classList.add('hidden');
+                document.getElementById('admin-nip').value = '';
+                document.getElementById('admin-pass').value = '';
+                switchView('admin-login');
+            }
+        }
+
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            const nip = document.getElementById('admin-nip').value.trim();
+            const pass = document.getElementById('admin-pass').value;
+            const errEl = document.getElementById('login-error');
+
+            if (nip === ADMIN_NIP && pass === ADMIN_PASS) {
+                sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
+                errEl.classList.add('hidden');
+                switchView('admin-dashboard');
+                await loadRecordsFromCloud();
+                if (!supabaseClient) {
+                    openSupabaseConfigModal();
+                }
+            } else {
+                errEl.textContent = "NIP Administrator atau Password tidak sesuai.";
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function adminLogout() {
+            sessionStorage.removeItem(ADMIN_AUTH_KEY);
+            switchView('attendance');
+        }
+
+        // --- KAMERA & SWAFOTO ---
+        async function startCamera() {
+            const video = document.getElementById('camera-feed');
+            const placeholder = document.getElementById('camera-placeholder');
+            const preview = document.getElementById('photo-preview');
+            const btnStart = document.getElementById('btn-start-camera');
+            const controls = document.getElementById('camera-active-controls');
+            const statusMsg = document.getElementById('camera-status-msg');
+
+            try {
+                if (videoStream) {
+                    videoStream.getTracks().forEach(track => track.stop());
+                }
+
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                    audio: false
+                });
+
+                video.srcObject = videoStream;
+                video.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                preview.classList.add('hidden');
+                btnStart.classList.add('hidden');
+                controls.classList.remove('hidden');
+
+                document.getElementById('photo-data').value = '';
+                statusMsg.textContent = "Kamera aktif. Posisikan wajah Anda lalu klik 'Ambil Foto'.";
+                statusMsg.className = "text-xs text-center text-blue-600 font-medium mt-2";
+            } catch (err) {
+                console.error("Camera Error:", err);
+                showAlert("Akses Kamera Ditolak", "Browser tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan pada pengaturan browser Anda.", "error");
+            }
+        }
+
+        function takeSnapshot() {
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('camera-canvas');
+            const preview = document.getElementById('photo-preview');
+            const statusMsg = document.getElementById('camera-status-msg');
+
+            if (!videoStream) return;
+
+            // Kompresi gambar ringan (maks lebar 480px, kualitas JPEG 0.7) agar hemat ruang LocalStorage
+            const targetWidth = 480;
+            const ratio = video.videoHeight ? (video.videoHeight / video.videoWidth) : 0.75;
+            canvas.width = targetWidth;
+            canvas.height = Math.round(targetWidth * ratio);
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            document.getElementById('photo-data').value = dataUrl;
+
+            preview.src = dataUrl;
+            preview.classList.remove('hidden');
+            video.classList.add('hidden');
+
+            // Matikan stream kamera setelah foto diambil
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+
+            statusMsg.textContent = "Swafoto berhasil diambil! Silakan klik 'Kirim Absensi Sekarang'.";
+            statusMsg.className = "text-xs text-center text-emerald-600 font-semibold mt-2";
+        }
+
+        function retakePhoto() {
+            document.getElementById('photo-data').value = '';
+            startCamera();
+        }
+
+        // --- SUBMIT ABSENSI ---
+        async function submitAttendance(e) {
+            e.preventDefault();
+
+            const btnSubmit = document.getElementById('btn-submit');
+            const name = document.getElementById('emp-name').value.trim();
+            const nip = document.getElementById('emp-nip').value.trim();
+            const status = document.getElementById('emp-status').value;
+            const session = document.getElementById('emp-session').value;
+            const photo = document.getElementById('photo-data').value;
+
+            if (!photo) {
+                showAlert("Swafoto Diperlukan", "Anda wajib mengaktifkan kamera dan mengambil swafoto terlebih dahulu sebelum mengirim absensi.", "warning");
+                return;
+            }
+
+            // Validasi Jadwal Sesi
+            const wita = getCurrentWitaDate();
+            const totalMinutes = wita.getHours() * 60 + wita.getMinutes();
+
+            if (session === 'Apel Pagi' && (totalMinutes < 450 || totalMinutes > 510)) {
+                showAlert("Di Luar Jadwal Apel Pagi", "Absensi Apel Pagi hanya dapat dilakukan pada pukul 07:30 - 08:30 WITA. Gunakan fitur Simulasi Sesi di atas jika sedang menguji sistem.", "warning");
+                return;
+            }
+
+            if (session === 'Apel Sore' && (totalMinutes < 930 || totalMinutes > 990)) {
+                showAlert("Di Luar Jadwal Apel Sore", "Absensi Apel Sore hanya dapat dilakukan pada pukul 15:30 - 16:30 WITA. Gunakan fitur Simulasi Sesi di atas jika sedang menguji sistem.", "warning");
+                return;
+            }
+
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengirim Absensi...';
+
+            try {
+                // Format Tanggal YYYY-MM-DD (WITA)
+                const realWita = getRealWitaDate();
+                const yyyy = realWita.getFullYear();
+                const mm = String(realWita.getMonth() + 1).padStart(2, '0');
+                const dd = String(realWita.getDate()).padStart(2, '0');
+                const dateIso = `${yyyy}-${mm}-${dd}`;
+                const timeFormatted = realWita.toTimeString().split(' ')[0];
+                const dateDisplay = `${dd}/${mm}/${yyyy} ${timeFormatted} WITA`;
+
+                // Cek duplikasi di Cloud jika Supabase terhubung
+                if (supabaseClient) {
+                    const { data: existingData, error: checkError } = await supabaseClient
+                        .from('absensi_pegawai')
+                        .select('id')
+                        .eq('nip', nip)
+                        .eq('session', session)
+                        .eq('date_iso', dateIso);
+
+                    if (checkError) throw checkError;
+                    if (existingData && existingData.length > 0) {
+                        showAlert("Absensi Sudah Tercatat", `Pegawai dengan NIP ${nip} sudah melakukan absensi untuk sesi ${session} hari ini di server.`, "warning");
+                        return;
+                    }
+                } else {
+                    const isDuplicate = allAttendanceRecords.some(
+                        item => item.nip === nip && item.session === session && item.dateIso === dateIso
+                    );
+                    if (isDuplicate) {
+                        showAlert("Absensi Sudah Tercatat", `Pegawai dengan NIP ${nip} sudah melakukan absensi untuk sesi ${session} hari ini.`, "warning");
+                        return;
+                    }
+                }
+
+                const recordId = 'ABS-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+                const timestampMs = Date.now();
+
+                if (supabaseClient) {
+                    const { error: insertError } = await supabaseClient
+                        .from('absensi_pegawai')
+                        .insert([{
+                            id: recordId,
+                            name: name,
+                            nip: nip,
+                            status: status,
+                            session: session,
+                            date_iso: dateIso,
+                            date_display: dateDisplay,
+                            photo: photo,
+                            timestamp_ms: timestampMs
+                        }]);
+
+                    if (insertError) throw insertError;
+                }
+
+                const newRecord = {
+                    id: recordId,
+                    name,
+                    nip,
+                    status,
+                    session,
+                    dateIso,
+                    dateDisplay,
+                    photo,
+                    timestampMs
+                };
+
+                allAttendanceRecords.unshift(newRecord);
+                saveRecordsToLocalCache();
+
+                // Reset Form & Kamera
+                document.getElementById('attendance-form').reset();
+                document.getElementById('photo-data').value = '';
+                document.getElementById('photo-preview').classList.add('hidden');
+                document.getElementById('camera-feed').classList.add('hidden');
+                document.getElementById('camera-placeholder').classList.remove('hidden');
+                document.getElementById('btn-start-camera').classList.remove('hidden');
+                document.getElementById('camera-active-controls').classList.add('hidden');
+                document.getElementById('camera-status-msg').textContent = '';
+
+                const storageNote = supabaseClient ? "dan tersimpan di Cloud Supabase." : "(tersimpan lokal; atur URL Supabase di Admin untuk sinkronisasi cloud).";
+                showAlert("Absensi Berhasil!", `Terima kasih, ${name}. Kehadiran Anda pada sesi ${session} telah tercatat pada ${dateDisplay} ${storageNote}`, "success");
+            } catch (err) {
+                console.error("Submit Error:", err);
+                showAlert("Gagal Mengirim ke Server", `Terjadi kesalahan koneksi Supabase: ${err.message || 'Periksa tabel absensi_pegawai di Supabase.'}`, "error");
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Kirim Absensi Sekarang';
+            }
+        }
+
+        // --- DASHBOARD ADMIN & TABEL ---
+        function updateDashboardStats() {
+            const realWita = getRealWitaDate();
+            const todayIso = `${realWita.getFullYear()}-${String(realWita.getMonth() + 1).padStart(2, '0')}-${String(realWita.getDate()).padStart(2, '0')}`;
+
+            const total = allAttendanceRecords.length;
+            const pagi = allAttendanceRecords.filter(r => r.session === 'Apel Pagi').length;
+            const sore = allAttendanceRecords.filter(r => r.session === 'Apel Sore').length;
+            const today = allAttendanceRecords.filter(r => r.dateIso === todayIso).length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-pagi').textContent = pagi;
+            document.getElementById('stat-sore').textContent = sore;
+            document.getElementById('stat-today').textContent = today;
+        }
+
+        function getFilteredRecords() {
+            const search = (document.getElementById('filter-search')?.value || '').toLowerCase().trim();
+            const session = document.getElementById('filter-session')?.value || '';
+            const status = document.getElementById('filter-status')?.value || '';
+            const date = document.getElementById('filter-date')?.value || '';
+
+            return allAttendanceRecords.filter(rec => {
+                const matchSearch = !search || rec.name.toLowerCase().includes(search) || rec.nip.toLowerCase().includes(search);
+                const matchSession = !session || rec.session === session;
+                const matchStatus = !status || rec.status === status;
+                const matchDate = !date || rec.dateIso === date;
+                return matchSearch && matchSession && matchStatus && matchDate;
+            });
+        }
+
+        function renderAttendanceTable() {
+            const tbody = document.getElementById('attendance-table-body');
+            const emptyState = document.getElementById('table-empty-state');
+            if (!tbody) return;
+
+            const filtered = getFilteredRecords();
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            filtered.forEach((rec, index) => {
+                const sessionBadge = rec.session === 'Apel Pagi'
+                    ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800">Apel Pagi</span>`
+                    : `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">Apel Sore</span>`;
+
+                const statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">${escapeHtml(rec.status)}</span>`;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 sm:p-4 text-center font-medium text-slate-500">${index + 1}</td>
+                    <td class="p-3 sm:p-4">
+                        <div class="font-bold text-slate-900">${escapeHtml(rec.name)}</div>
+                        <div class="text-xs font-mono text-slate-500">NIP. ${escapeHtml(rec.nip)}</div>
+                    </td>
+                    <td class="p-3 sm:p-4">${statusBadge}</td>
+                    <td class="p-3 sm:p-4">${sessionBadge}</td>
+                    <td class="p-3 sm:p-4 text-xs text-slate-600 font-mono">${escapeHtml(rec.dateDisplay)}</td>
+                    <td class="p-3 sm:p-4 text-center">
+                        <button onclick="openPhotoModal('${rec.id}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition">
+                            <i class="fa-solid fa-image"></i> Lihat
+                        </button>
+                    </td>
+                    <td class="p-3 sm:p-4 text-center">
+                        <button onclick="openDeleteModal('${rec.id}')" class="p-2 rounded-lg text-rose-600 hover:bg-rose-50 transition" title="Hapus Data">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // --- EKSPOR EXCEL (CSV) ---
+        function exportToCSV() {
+            const records = getFilteredRecords();
+            if (records.length === 0) {
+                showAlert("Data Kosong", "Tidak ada data absensi untuk diekspor sesuai filter saat ini.", "warning");
+                return;
+            }
+
+            const headers = ["No", "Nama Lengkap", "NIP", "Status Kepegawaian", "Sesi Apel", "Waktu Kehadiran (WITA)"];
+            const rows = records.map((rec, idx) => [
+                idx + 1,
+                `"${rec.name.replace(/"/g, '""')}"`,
+                `"'${rec.nip}"`,
+                `"${rec.status}"`,
+                `"${rec.session}"`,
+                `"${rec.dateDisplay}"`
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
+                + headers.join(",") + "\n"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            const realWita = getRealWitaDate();
+            const fileDate = `${realWita.getFullYear()}-${String(realWita.getMonth() + 1).padStart(2, '0')}-${String(realWita.getDate()).padStart(2, '0')}`;
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Laporan_Absensi_Disdukcapil_Bangkep_${fileDate}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- MODAL HANDLERS ---
+        function openPhotoModal(id) {
+            const rec = allAttendanceRecords.find(r => r.id === id);
+            if (!rec) return;
+
+            document.getElementById('modal-employee-title').textContent = `Swafoto: ${rec.name}`;
+            document.getElementById('modal-img-preview').src = rec.photo;
+            document.getElementById('modal-employee-meta').innerHTML = `
+                <div><strong>NIP:</strong> ${escapeHtml(rec.nip)}</div>
+                <div><strong>Status:</strong> ${escapeHtml(rec.status)}</div>
+                <div><strong>Sesi & Waktu:</strong> ${escapeHtml(rec.session)} • ${escapeHtml(rec.dateDisplay)}</div>
+            `;
+            document.getElementById('photo-modal').classList.remove('hidden');
+        }
+
+        function closePhotoModal() {
+            document.getElementById('photo-modal').classList.add('hidden');
+        }
+
+        function openDeleteModal(id) {
+            pendingDeleteId = id;
+            const rec = allAttendanceRecords.find(r => r.id === id);
+            if (rec) {
+                document.getElementById('delete-modal-msg').textContent = `Apakah Anda yakin ingin menghapus riwayat absensi atas nama ${rec.name} (${rec.session})?`;
+            }
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            pendingDeleteId = null;
+            document.getElementById('delete-modal').classList.add('hidden');
+        }
+
+        async function confirmDeleteAttendance() {
+            if (!pendingDeleteId) return;
+            const targetId = pendingDeleteId;
+
+            try {
+                if (supabaseClient) {
+                    const { error } = await supabaseClient
+                        .from('absensi_pegawai')
+                        .delete()
+                        .eq('id', targetId);
+                    if (error) throw error;
+                }
+
+                allAttendanceRecords = allAttendanceRecords.filter(r => r.id !== targetId);
+                saveRecordsToLocalCache();
+                updateDashboardStats();
+                renderAttendanceTable();
+                closeDeleteModal();
+                showAlert("Terhapus", "Data riwayat absensi telah berhasil dihapus.", "success");
+            } catch (err) {
+                console.error("Delete Error:", err);
+                closeDeleteModal();
+                showAlert("Gagal Menghapus", `Gagal menghapus data dari Supabase: ${err.message}`, "error");
+            }
+        }
+
+        function showAlert(title, message, type = 'info') {
+            const iconEl = document.getElementById('alert-icon');
+            const titleEl = document.getElementById('alert-title');
+            const msgEl = document.getElementById('alert-message');
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+
+            if (type === 'success') {
+                iconEl.className = "w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-2xl";
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            } else if (type === 'error') {
+                iconEl.className = "w-14 h-14 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4 text-2xl";
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+            } else {
+                iconEl.className = "w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 text-2xl";
+                iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            }
+
+            document.getElementById('alert-modal').classList.remove('hidden');
+        }
+
+        function closeAlertModal() {
+            document.getElementById('alert-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
